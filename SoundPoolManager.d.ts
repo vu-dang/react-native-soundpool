@@ -7,7 +7,7 @@ export declare class SoundPoolManager {
     constructor();
     /**
      * Configure the iOS audio session category.
-     * @param category 'Playback' (default, plays even if device is silenced) or 'Ambient' (silenced by hardware mute switch)
+     * @param category 'Ambient' (default for game sound effects, mixes with Apple Music/Spotify) or 'Playback' (plays even when silent switch is on)
      * @param mixWithOthers When true (default), background music (Spotify, Apple Music, podcasts) is never interrupted.
      */
     setCategory(category?: AudioCategory, mixWithOthers?: boolean): void;

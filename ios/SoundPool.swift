@@ -20,25 +20,53 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
 
     private let serialQueue = DispatchQueue(label: "com.reactnativesoundpool.queue")
 
+    private var currentCategory: String = "Ambient"
+    private var currentMixWithOthers: Bool = true
+
     override init() {
         super.init()
-        setupAudioSession(category: "Playback", mixWithOthers: true)
+        setupAudioSession(category: "Ambient", mixWithOthers: true)
     }
 
     private func setupAudioSession(category: String, mixWithOthers: Bool) {
-        let session = AVAudioSession.sharedInstance()
-        let cat: AVAudioSession.Category = (category.lowercased() == "ambient") ? .ambient : .playback
+        self.currentCategory = category
+        self.currentMixWithOthers = mixWithOthers
 
-        var options: AVAudioSession.CategoryOptions = [.allowBluetooth]
+        let session = AVAudioSession.sharedInstance()
+        let isAmbient = category.lowercased() == "ambient"
+        let cat: AVAudioSession.Category = isAmbient ? .ambient : .playback
+
+        var options: AVAudioSession.CategoryOptions = []
         if mixWithOthers {
             options.insert(.mixWithOthers)
         }
 
         do {
-            try session.setCategory(cat, options: options)
+            try session.setCategory(cat, mode: .default, options: options)
             try session.setActive(true)
         } catch {
             print("[SoundPool] Warning: failed to configure AVAudioSession: \(error.localizedDescription)")
+        }
+    }
+
+    private func ensureAudioSessionActive() {
+        let session = AVAudioSession.sharedInstance()
+        let isAmbient = currentCategory.lowercased() == "ambient"
+        let expectedCat: AVAudioSession.Category = isAmbient ? .ambient : .playback
+        let expectedOptions: AVAudioSession.CategoryOptions = currentMixWithOthers ? [.mixWithOthers] : []
+
+        if session.category != expectedCat || (currentMixWithOthers && !session.categoryOptions.contains(.mixWithOthers)) {
+            do {
+                try session.setCategory(expectedCat, mode: .default, options: expectedOptions)
+            } catch {
+                print("[SoundPool] Warning: failed to reconfigure AVAudioSession: \(error.localizedDescription)")
+            }
+        }
+
+        do {
+            try session.setActive(true)
+        } catch {
+            print("[SoundPool] Warning: failed to activate AVAudioSession: \(error.localizedDescription)")
         }
     }
 
@@ -112,6 +140,8 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
         reject: @escaping RCTPromiseRejectBlock
     ) {
         serialQueue.async {
+            self.ensureAudioSessionActive()
+
             guard var entry = self.soundEntries[soundId] else {
                 reject("SOUND_NOT_FOUND", "Sound ID \(soundId) has not been loaded", nil)
                 return
@@ -180,6 +210,7 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
     @objc(resume:)
     func resume(_ streamId: NSInteger) {
         serialQueue.async {
+            self.ensureAudioSessionActive()
             self.activeStreams[streamId]?.play()
         }
     }
@@ -194,6 +225,7 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
     @objc(autoResume)
     func autoResume() {
         serialQueue.async {
+            self.ensureAudioSessionActive()
             self.activeStreams.values.forEach { $0.play() }
         }
     }

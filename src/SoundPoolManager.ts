@@ -17,17 +17,17 @@ export class SoundPoolManager {
 
   constructor() {
     if (NativeSoundPool && Platform.OS === 'ios') {
-      // Configure audio session to Playback with mixWithOthers=true by default
-      NativeSoundPool.setCategory('Playback', true);
+      // Configure audio session to Ambient with mixWithOthers=true by default for non-interrupting game audio
+      NativeSoundPool.setCategory('Ambient', true);
     }
   }
 
   /**
    * Configure the iOS audio session category.
-   * @param category 'Playback' (default, plays even if device is silenced) or 'Ambient' (silenced by hardware mute switch)
+   * @param category 'Ambient' (default for game sound effects, mixes with Apple Music/Spotify) or 'Playback' (plays even when silent switch is on)
    * @param mixWithOthers When true (default), background music (Spotify, Apple Music, podcasts) is never interrupted.
    */
-  public setCategory(category: AudioCategory = 'Playback', mixWithOthers: boolean = true): void {
+  public setCategory(category: AudioCategory = 'Ambient', mixWithOthers: boolean = true): void {
     if (NativeSoundPool && Platform.OS === 'ios') {
       NativeSoundPool.setCategory(category, mixWithOthers);
     }
