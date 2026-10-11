@@ -13,6 +13,10 @@
     "ios",
     "index.js",
     "index.d.ts",
+    "SoundPoolManager.js",
+    "SoundPoolManager.d.ts",
+    "types.js",
+    "types.d.ts",
     "SoundPool.podspec",
     "README.md",
     "LICENSE"
