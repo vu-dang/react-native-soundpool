@@ -1,20 +1,20 @@
-# react-native-soundpool
+# @vu-dang/react-native-soundpool
 
-[![npm version](https://img.shields.io/npm/v/react-native-soundpool.svg)](https://www.npmjs.com/package/react-native-soundpool)
+[![npm version](https://img.shields.io/npm/v/@vu-dang/react-native-soundpool.svg)](https://www.npmjs.com/package/@vu-dang/react-native-soundpool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/vu-dang/react-native-soundpool/pulls)
 
 Ultra-low-latency, polyphonic game sound effects for React Native.
 
-Powered by native **Android `SoundPool`** and **iOS `AVAudioPlayer` multi-voice audio pools**, `react-native-soundpool` delivers instant, sub-5ms audio playback without interrupting active background music (Spotify, Apple Music, YouTube Music, Podcasts).
+Powered by native **Android `SoundPool`** and **iOS `AVAudioPlayer` multi-voice audio pools**, `@vu-dang/react-native-soundpool` delivers instant, sub-5ms audio playback without interrupting active background music (Spotify, Apple Music, YouTube Music, Podcasts).
 
 ---
 
-## Why react-native-soundpool?
+## Why @vu-dang/react-native-soundpool?
 
 Most React Native audio libraries (like `react-native-sound` or `MediaPlayer`) were designed for long-form playback (songs, video soundtracks, podcasts). For mobile games and fast-paced UI interactions, they present major bottlenecks:
 
-| Feature | `react-native-sound` / `MediaPlayer` | `react-native-soundpool` |
+| Feature | `react-native-sound` / `MediaPlayer` | `@vu-dang/react-native-soundpool` |
 | :--- | :--- | :--- |
 | **Background Music** | ❌ Interrupts/pauses Spotify & Apple Music by claiming exclusive audio focus | ✅ **Seamless mixing**: Never interrupts user's background music |
 | **Audio Latency** | ⚠️ 50ms – 200ms lag per trigger | ⚡ **< 5ms near-zero latency** |
@@ -37,9 +37,9 @@ Most React Native audio libraries (like `react-native-sound` or `MediaPlayer`) w
 ## Installation
 
 ```bash
-npm install react-native-soundpool
+npm install @vu-dang/react-native-soundpool
 # or
-yarn add react-native-soundpool
+yarn add @vu-dang/react-native-soundpool
 ```
 
 ### iOS Setup
@@ -67,7 +67,7 @@ Autolinking handles module registration automatically on React Native 0.60+.
 The `SoundPoolManager` makes game audio effortless by handling preloading, fire-and-forget triggering, and global mute controls:
 
 ```typescript
-import { SoundPoolManager } from 'react-native-soundpool';
+import { SoundPoolManager } from '@vu-dang/react-native-soundpool';
 
 export const soundManager = new SoundPoolManager();
 
@@ -97,7 +97,7 @@ soundManager.setSoundEnabled(false);
 For fine-grained control over individual audio streams:
 
 ```typescript
-import SoundPool from 'react-native-soundpool';
+import SoundPool from '@vu-dang/react-native-soundpool';
 
 // Load sound and get sound ID
 const soundId = await SoundPool.load('chip_lay_1.wav');

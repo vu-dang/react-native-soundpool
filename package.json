@@ -1,6 +1,9 @@
 {
-  "name": "react-native-soundpool",
+  "name": "@vu-dang/react-native-soundpool",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Ultra low-latency polyphonic game sound effects for React Native using native Android SoundPool and iOS AVAudioEngine/AVAudioPlayer with non-interrupting background music mixing.",
   "main": "index.js",
   "types": "index.d.ts",
