@@ -45,5 +45,6 @@ export interface NativeSoundPoolInterface {
     setCategory(category: string, mixWithOthers: boolean): void;
     unload(soundId: number): void;
     releasePool(): void;
+    reactivate?(): void;
 }
 //# sourceMappingURL=types.d.ts.map

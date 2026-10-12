@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform, AppState, AppStateStatus, NativeEventSubscription } from 'react-native';
 import { NativeSoundPoolInterface, PlayOptions, AudioCategory } from './types';
 
 const NativeSoundPool: NativeSoundPoolInterface = NativeModules.SoundPool;
@@ -14,11 +14,34 @@ export class SoundPoolManager {
   private soundEnabled: boolean = true;
   private isLoaded: boolean = false;
   private masterVolume: number = 1.0;
+  private appStateSubscription: NativeEventSubscription | null = null;
 
   constructor() {
     if (NativeSoundPool && Platform.OS === 'ios') {
       // Configure audio session to Ambient with mixWithOthers=true by default for non-interrupting game audio
       NativeSoundPool.setCategory('Ambient', true);
+    }
+
+    // Automatically re-activate audio session and warm up pool when app returns to foreground
+    if (NativeSoundPool) {
+      this.appStateSubscription = AppState.addEventListener(
+        'change',
+        (nextState: AppStateStatus) => {
+          if (nextState === 'active') {
+            this.reactivate();
+          }
+        }
+      );
+    }
+  }
+
+  /**
+   * Re-activate the audio session and warm up audio players in the pool.
+   * Useful when returning to the foreground after being suspended in the background.
+   */
+  public reactivate(): void {
+    if (NativeSoundPool?.reactivate) {
+      NativeSoundPool.reactivate();
     }
   }
 
@@ -205,6 +228,10 @@ export class SoundPoolManager {
    * Release all loaded sounds and shut down the native sound pool.
    */
   public release(): void {
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+      this.appStateSubscription = null;
+    }
     if (NativeSoundPool) {
       NativeSoundPool.releasePool();
     }

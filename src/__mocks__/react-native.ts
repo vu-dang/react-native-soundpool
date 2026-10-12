@@ -16,10 +16,16 @@ export const NativeModules: { SoundPool: any; [key: string]: any } = {
     setCategory: jest.fn(),
     unload: jest.fn(),
     releasePool: jest.fn(),
+    reactivate: jest.fn(),
   },
 };
 
 export const Platform = {
   OS: 'ios',
   select: jest.fn((dict: any) => dict.ios || dict.default),
+};
+
+export const AppState = {
+  addEventListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+  currentState: 'active',
 };

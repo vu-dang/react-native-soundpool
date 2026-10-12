@@ -32,6 +32,7 @@ RCT_EXTERN_METHOD(setMasterVolume:(double)volume)
 RCT_EXTERN_METHOD(setCategory:(NSString *)category mixWithOthers:(BOOL)mixWithOthers)
 RCT_EXTERN_METHOD(unload:(NSInteger)soundId)
 RCT_EXTERN_METHOD(releasePool)
+RCT_EXTERN_METHOD(reactivate)
 
 + (BOOL)requiresMainQueueSetup
 {

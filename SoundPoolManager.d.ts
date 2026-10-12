@@ -4,7 +4,13 @@ export declare class SoundPoolManager {
     private soundEnabled;
     private isLoaded;
     private masterVolume;
+    private appStateSubscription;
     constructor();
+    /**
+     * Re-activate the audio session and warm up audio players in the pool.
+     * Useful when returning to the foreground after being suspended in the background.
+     */
+    reactivate(): void;
     /**
      * Configure the iOS audio session category.
      * @param category 'Ambient' (default for game sound effects, mixes with Apple Music/Spotify) or 'Playback' (plays even when silent switch is on)

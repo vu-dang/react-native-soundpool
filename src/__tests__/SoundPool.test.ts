@@ -111,4 +111,14 @@ describe('SoundPoolManager (High-Level API)', () => {
 
     expect(mockNativeSoundPool.play).toHaveBeenCalled();
   });
+
+  it('supports reactivate to warm up audio players', () => {
+    manager.reactivate();
+    expect(mockNativeSoundPool.reactivate).toHaveBeenCalled();
+  });
+
+  it('removes AppState subscription on release', () => {
+    manager.release();
+    expect(mockNativeSoundPool.releasePool).toHaveBeenCalled();
+  });
 });

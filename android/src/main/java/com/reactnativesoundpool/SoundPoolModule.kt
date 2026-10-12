@@ -234,9 +234,14 @@ class SoundPoolModule(reactContext: ReactApplicationContext) :
         soundPool = null
     }
 
+    @ReactMethod
+    fun reactivate() {
+        soundPool?.autoResume()
+    }
+
     // Lifecycle listener methods
     override fun onHostResume() {
-        // Optional: autoResume if desired
+        soundPool?.autoResume()
     }
 
     override fun onHostPause() {

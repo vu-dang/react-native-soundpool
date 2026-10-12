@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 import React
 
 @objc(SoundPool)
@@ -26,6 +27,105 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
     override init() {
         super.init()
         setupAudioSession(category: "Ambient", mixWithOthers: true)
+        registerNotificationObservers()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    private func registerNotificationObservers() {
+        let nc = NotificationCenter.default
+
+        // App enters foreground / becomes active
+        nc.addObserver(
+            self,
+            selector: #selector(handleAppForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        nc.addObserver(
+            self,
+            selector: #selector(handleAppForeground),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+
+        // App enters background
+        nc.addObserver(
+            self,
+            selector: #selector(handleAppBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+
+        // Audio session interruption (phone calls, Siri, clock alarms)
+        nc.addObserver(
+            self,
+            selector: #selector(handleAudioInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+
+        // Media services reset (iOS media server killed & restarted)
+        nc.addObserver(
+            self,
+            selector: #selector(handleMediaServicesReset),
+            name: AVAudioSession.mediaServicesWereResetNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAppForeground() {
+        serialQueue.async {
+            self.reactivateAndWarmup()
+        }
+    }
+
+    @objc private func handleAppBackground() {
+        serialQueue.async {
+            // Stop playing streams when app backgrounds to release audio hardware cleanly
+            self.activeStreams.values.forEach { $0.stop() }
+            self.activeStreams.removeAll()
+        }
+    }
+
+    @objc private func handleAudioInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        serialQueue.async {
+            switch type {
+            case .began:
+                self.activeStreams.values.forEach { $0.pause() }
+            case .ended:
+                self.reactivateAndWarmup()
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    @objc private func handleMediaServicesReset() {
+        serialQueue.async {
+            print("[SoundPool] Media services were reset, rebuilding audio pool...")
+            self.setupAudioSession(category: self.currentCategory, mixWithOthers: self.currentMixWithOthers)
+
+            for (soundId, var entry) in self.soundEntries {
+                var newPlayers: [AVAudioPlayer] = []
+                for _ in 0..<self.poolPerSound {
+                    if let player = try? AVAudioPlayer(contentsOf: entry.url) {
+                        player.enableRate = true
+                        player.prepareToPlay()
+                        newPlayers.append(player)
+                    }
+                }
+                entry.players = newPlayers
+                self.soundEntries[soundId] = entry
+            }
+            self.activeStreams.removeAll()
+        }
     }
 
     private func setupAudioSession(category: String, mixWithOthers: Bool) {
@@ -53,7 +153,10 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
         let session = AVAudioSession.sharedInstance()
         let isAmbient = currentCategory.lowercased() == "ambient"
         let expectedCat: AVAudioSession.Category = isAmbient ? .ambient : .playback
-        let expectedOptions: AVAudioSession.CategoryOptions = currentMixWithOthers ? [.mixWithOthers] : []
+        var expectedOptions: AVAudioSession.CategoryOptions = []
+        if currentMixWithOthers {
+            expectedOptions.insert(.mixWithOthers)
+        }
 
         if session.category != expectedCat || (currentMixWithOthers && !session.categoryOptions.contains(.mixWithOthers)) {
             do {
@@ -67,6 +170,33 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
             try session.setActive(true)
         } catch {
             print("[SoundPool] Warning: failed to activate AVAudioSession: \(error.localizedDescription)")
+        }
+    }
+
+    private func reactivateAndWarmup() {
+        self.ensureAudioSessionActive()
+
+        // Recreate fresh AVAudioPlayer instances for all sounds to guarantee valid CoreAudio queues
+        for (soundId, var entry) in self.soundEntries {
+            var freshPlayers: [AVAudioPlayer] = []
+            for _ in 0..<self.poolPerSound {
+                if let fresh = try? AVAudioPlayer(contentsOf: entry.url) {
+                    fresh.enableRate = true
+                    fresh.prepareToPlay()
+                    freshPlayers.append(fresh)
+                }
+            }
+            if !freshPlayers.isEmpty {
+                entry.players = freshPlayers
+                self.soundEntries[soundId] = entry
+            }
+        }
+    }
+
+    @objc(reactivate)
+    func reactivate() {
+        serialQueue.async {
+            self.reactivateAndWarmup()
         }
     }
 
@@ -185,9 +315,43 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
             self.nextStreamId += 1
 
             player.delegate = self
-            player.play()
+            var played = player.play()
 
-            self.activeStreams[streamId] = player
+            // If player.play() fails, the underlying CoreAudio queue was invalidated
+            // (e.g. after sitting in background/suspended state for a while).
+            // Auto-recover immediately: re-activate session, recreate fresh players, prepare and play!
+            if !played {
+                print("[SoundPool] player.play() returned false for sound \(soundId). Attempting auto-recovery...")
+                self.ensureAudioSessionActive()
+
+                var newPlayers: [AVAudioPlayer] = []
+                for _ in 0..<self.poolPerSound {
+                    if let fresh = try? AVAudioPlayer(contentsOf: entry.url) {
+                        fresh.enableRate = true
+                        fresh.volume = player.volume
+                        fresh.pan = player.pan
+                        fresh.rate = player.rate
+                        fresh.numberOfLoops = player.numberOfLoops
+                        fresh.delegate = self
+                        fresh.prepareToPlay()
+                        newPlayers.append(fresh)
+                    }
+                }
+
+                if let firstFresh = newPlayers.first {
+                    played = firstFresh.play()
+                    targetPlayer = firstFresh
+                    entry.players = newPlayers
+                    self.soundEntries[soundId] = entry
+                }
+            }
+
+            guard played, let finalPlayer = targetPlayer else {
+                reject("PLAY_FAILED", "Failed to start audio playback for sound ID: \(soundId)", nil)
+                return
+            }
+
+            self.activeStreams[streamId] = finalPlayer
             resolve(streamId)
         }
     }
@@ -211,7 +375,12 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
     func resume(_ streamId: NSInteger) {
         serialQueue.async {
             self.ensureAudioSessionActive()
-            self.activeStreams[streamId]?.play()
+            if let player = self.activeStreams[streamId] {
+                if !player.play() {
+                    player.prepareToPlay()
+                    _ = player.play()
+                }
+            }
         }
     }
 
@@ -226,7 +395,12 @@ class SoundPool: NSObject, AVAudioPlayerDelegate {
     func autoResume() {
         serialQueue.async {
             self.ensureAudioSessionActive()
-            self.activeStreams.values.forEach { $0.play() }
+            self.activeStreams.values.forEach { player in
+                if !player.play() {
+                    player.prepareToPlay()
+                    _ = player.play()
+                }
+            }
         }
     }
 
